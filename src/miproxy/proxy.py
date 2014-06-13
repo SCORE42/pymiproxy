@@ -212,7 +212,16 @@ class ProxyHandler(BaseHTTPRequestHandler):
             req += self.rfile.read(int(self.headers['Content-Length']))
 
         # Send it down the pipe!
-        self._proxy_sock.sendall(self.mitm_request(req))
+        try:
+            self._proxy_sock.sendall(self.mitm_request(req))
+        except Exception, e:
+            if not isinstance(e, Exception):
+                self.send_error(501, str(e))
+                return
+            else:
+                code, message = e.message[0], e.message[1]
+                self.send_error(code, message)
+                return
 
         # Parse response
         h = HTTPResponse(self._proxy_sock)
@@ -235,7 +244,10 @@ class ProxyHandler(BaseHTTPRequestHandler):
 
     def mitm_request(self, data):
         for p in self.server._req_plugins:
-            data = p(self.server, self).do_request(data)
+            try:
+                data = p(self.server, self).do_request(data)
+            except Exception, e:
+                raise Exception(e)
         return data
 
     def mitm_response(self, data):
